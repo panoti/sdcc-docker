@@ -8,7 +8,7 @@ RUN apt-get update \
   && mkdir -p /opt/sdcc-src \
   && mkdir -p /opt/sdcc \
   && cd /opt/sdcc-src \
-  && curl -fsSL https://udomain.dl.sourceforge.net/project/sdcc/sdcc/${SDCC_VER}/sdcc-src-${SDCC_VER}.tar.bz2 |tar -xj --strip-components=1 \
+  && curl -fsSL https://udomain.dl.sourceforge.net/project/sdcc/sdcc/${SDCC_VER}/sdcc-src-${SDCC_VER}.tar.bz2 | tar -xj --strip-components=1 \
   && ./configure --prefix=/opt/sdcc \
   && make \
   && make install
