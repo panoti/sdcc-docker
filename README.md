@@ -6,13 +6,11 @@
 
 Dockerizing [SDCC Compiler](http://sdcc.sourceforge.net/) for CI/CD.
 
-Platforms:
+**Platforms:**
+- [x] Linux x86, x64
 
-[x] Linux x86, x64
-
-Tools:
-
-[x] SDCC Compiler
+**Tools:**
+- [x] SDCC Compiler
 
 ## Usage
 
