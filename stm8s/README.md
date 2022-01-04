@@ -1,3 +1,4 @@
+[![STM8s Docker CI](https://github.com/panoti/sdcc-docker/actions/workflows/STM8s.yml/badge.svg?branch=stm8s)](https://github.com/panoti/sdcc-docker/actions/workflows/STM8s.yml)
 
 ## STM8S/A Standard peripheral library
 
