@@ -18,3 +18,7 @@ docker run --rm -it ghcr.io/panoti/sdcc-docker:latest /bin/bash
 
 - This image just include sdcc compiler without other tools. If you need more tools, just use `apk` to install.
 - We support both docker hub and github registry.
+
+## License
+
+SDCC Docker is [MIT licensed](LICENSE).
