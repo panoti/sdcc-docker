@@ -8,8 +8,8 @@ name: STM8s Docker CI
 on:
   push:
     branches: [ stm8s ]
-  pull_request:
-    branches: [ stm8s ]
+  #pull_request:
+  #  branches: [ stm8s ]
 
 env:
   GHC_REGISTRY: ghcr.io
