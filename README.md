@@ -2,6 +2,10 @@
 
 # SDCC Compiler Docker
 
+## Description
+
+Dockerizing [SDCC Compiler](http://sdcc.sourceforge.net/) for CI/CD
+
 ## Usage
 
 ```bash
