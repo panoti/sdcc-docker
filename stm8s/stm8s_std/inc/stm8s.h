@@ -85,6 +85,11 @@
  #define _RAISONANCE_
 #elif defined(__ICCSTM8__)
  #define _IAR_
+#elif defined(__SDCC)                    /* SDCC patch: add compiler key */
+ #define _SDCC_
+ #define SDCC_VERSION (__SDCC_VERSION_MAJOR * 10000 \
+                     + __SDCC_VERSION_MINOR * 100 \
+                     + __SDCC_VERSION_PATCH)
 #else
  #error "Unsupported Compiler!"          /* Compiler defines not found */
 #endif
@@ -138,6 +143,12 @@
   /*!< Used with memory Models for code less than 64K */
   #define MEMCPY memcpy
  #endif /* STM8S208 or STM8S207 or STM8S007 or STM8AF62Ax or STM8AF52Ax */ 
+#elif defined (_SDCC_)                    /* SDCC patch: mostly not required / not supported */
+ #define FAR
+ #define NEAR
+ #define TINY
+ #define EEPROM
+ #define CONST  const
 #else /*_IAR_*/
  #define FAR  __far
  #define NEAR __near
@@ -155,10 +166,12 @@
 /*!< Used with memory Models for code smaller than 64K */
  #define PointerAttr NEAR
  #define MemoryAddressCast uint16_t
+ #undef _SDCC_BIGMEM_                    /* SDCC patch: simplify sdcc && >64kB indicator over different SPLs */
 #else /* STM8S208 or STM8S207 or STM8AF62Ax or STM8AF52Ax */
 /*!< Used with memory Models for code higher than 64K */
  #define PointerAttr FAR
  #define MemoryAddressCast uint32_t
+ #define _SDCC_BIGMEM_                   /* SDCC patch: simplify sdcc && >64kB indicator over different SPLs */
 #endif /* STM8S105 or STM8S103 or STM8S003 or STM8S001 or STM8S903 or STM8AF626x or STM8AF622x */
 
 /* Uncomment the line below to enable the FLASH functions execution from RAM */
@@ -171,6 +184,8 @@
    #define IN_RAM(a) a
  #elif defined (_RAISONANCE_) /* __RCST7__ */
    #define IN_RAM(a) a inram
+ #elif defined (_SDCC_)                    /* SDCC patch: code in RAM not yet patched */
+  #error RAM execution not yet implemented in patch, comment RAM_EXECUTION in stm8s.h
  #else /*_IAR_*/
   #define IN_RAM(a) __ramfunc a
  #endif /* _COSMIC_ */
@@ -2730,6 +2745,16 @@ CFG_TypeDef;
  #define trap()                {_asm("trap\n");} /* Trap (soft IT) */
  #define wfi()                 {_asm("wfi\n");}  /* Wait For Interrupt */
  #define halt()                {_asm("halt\n");} /* Halt */
+#elif defined(_SDCC_)                    /* SDCC patch: standard inline asm macros */
+ #define enableInterrupts()    __asm__("rim")    /* enable interrupts */
+ #define disableInterrupts()   __asm__("sim")    /* disable interrupts */
+ #define rim()                 __asm__("rim")    /* enable interrupts */
+ #define sim()                 __asm__("sim")    /* disable interrupts */
+ #define nop()                 __asm__("nop")    /* no operation */
+ #define trap()                __asm__("trap")   /* trap (soft IT) */
+ #define wfi()                 __asm__("wfi")    /* wait for interrupt */
+ #define wfe()                 __asm__("wfe")    /* wait for event */
+ #define halt()                __asm__("halt")   /* halt CPU */
 #else /*_IAR_*/
  #include <intrinsics.h>
  #define enableInterrupts()    __enable_interrupt()   /* enable interrupts */
@@ -2764,12 +2789,29 @@ CFG_TypeDef;
  _Pragma( VECTOR_ID( 1 ) ) \
  __interrupt void (a) (void)  
 #endif /* _IAR_ */
+ 
+/* SDCC patch: declare ISR handlers */
+#ifdef _SDCC_
+ #define INTERRUPT_HANDLER(a,b) void a() __interrupt(b)
+
+ /* traps require >=v3.4.3 -> else warn and skip */
+ #if SDCC_VERSION >= 30403
+   #define INTERRUPT_HANDLER_TRAP(a) void a() __trap 
+ #else
+   #warning traps require SDCC>=v3.4.3. Update if required
+   #define INTERRUPT_HANDLER_TRAP(a) void a()
+ #endif 
+
+#endif /* _SDCC_ */
 
 /*============================== Interrupt Handler declaration ========================*/
 #ifdef _COSMIC_
  #define INTERRUPT @far @interrupt
 #elif defined(_IAR_)
  #define INTERRUPT __interrupt
+#elif defined(_SDCC_)                    /* SDCC patch: doesn't work like that in SDCC -> skip */
+  #define INTERRUPT __interrupt
+  //#include "stm8s_it.h"                  /* must be included in main.c! */
 #endif /* _COSMIC_ */
 
 /*============================== Handling bits ====================================*/

@@ -70,9 +70,90 @@
 #define FLASH_SET_BYTE      ((uint8_t)0xFF)
 #define OPERATION_TIMEOUT   ((uint16_t)0xFFFF)
 /* Private macro -------------------------------------------------------------*/
+
+/* SDCC patch: simplify sdcc && >64kB indicator over different SPLs */
+#if defined(_SDCC_BIGMEM_)
+  #undef  MemoryAddressCast
+  #define MemoryAddressCast uint32_t
+#else
+  #undef  MemoryAddressCast
+  #define MemoryAddressCast uint16_t
+#endif
+
 /* Private variables ---------------------------------------------------------*/
+
+/* SDCC patch: for >64kB to pass data to/from inline ASM (SDCC doesn't support far pointers yet) */
+#if defined(_SDCC_BIGMEM_)     
+  uint32_t    asm_addr;      // 16b/24b address
+  uint8_t     asm_val;       // 1B data for r/w data
+#endif // _SDCC_BIGMEM_
+
 /* Private function prototypes -----------------------------------------------*/
+
+/* SDCC patch: r/w helper routines for >64kB addresses (SDCC doesn't support far pointers yet) */
+#if defined (_SDCC_BIGMEM_)
+  void      write_byte_address(uint32_t Address, uint8_t Data);   // write single byte to 16b/24b address
+  uint8_t   read_byte_address(uint32_t Address);                  // read single byte from 16b/24b address
+#endif // _SDCC_BIGMEM_
+
 /* Private Constants ---------------------------------------------------------*/
+ 
+/* SDCC patch: r/w helper routines for >64kB addresses using inline ASM (SDCC doesn't support far pointers yet) */
+/** @addtogroup FLASH_Helper_functions
+  * @{
+  */
+
+#if defined (_SDCC_BIGMEM_)
+/**
+  * @brief  write single byte to address
+  * @note   is required for >64kB memory space and SDCC, which doesn't yet support far pointers
+  * @param  Address : address to write to
+  *         Data :    value to write
+  * @retval None
+  */
+void write_byte_address(uint32_t Address, uint8_t Data)
+{
+  /* store address & data globally for assember */
+  asm_addr = Address;
+  asm_val  = Data;
+
+  /* use inline assembler to write to 16b/24b address */
+__asm
+  ld	a,_asm_val
+  ldf	[_asm_addr+1].e,a
+__endasm;
+
+}
+
+
+/**
+  * @brief  Reads any byte from flash memory
+  * @note   is required for >64kB memory space and SDCC, which doesn't yet support far pointers
+  * @param  Address : address to read
+  * @retval value read
+  */
+uint8_t read_byte_address(uint32_t Address)
+{
+  /* store address globally for assember */
+  asm_addr = Address;
+
+  /* use inline assembler to read from 16b/24b address */
+__asm
+  ldf	a,[_asm_addr+1].e
+  ld	_asm_val,a
+__endasm;
+
+  /* return read byte */
+  return(asm_val);
+  
+}
+
+#endif // _SDCC_BIGMEM_
+
+/**
+  * @}
+  */
+  
 
 /** @addtogroup FLASH_Public_functions
   * @{
@@ -167,7 +248,12 @@ void FLASH_EraseByte(uint32_t Address)
   assert_param(IS_FLASH_ADDRESS_OK(Address));
   
   /* Erase byte */
-  *(PointerAttr uint8_t*) (MemoryAddressCast)Address = FLASH_CLEAR_BYTE; 
+  /* SDCC patch: SDCC requires helper routines for >64kB addresses due to lack of far pointers */
+  #ifndef _SDCC_BIGMEM_
+    *(PointerAttr uint8_t*) (MemoryAddressCast)Address = FLASH_CLEAR_BYTE;
+  #else
+    write_byte_address((MemoryAddressCast) Address, FLASH_CLEAR_BYTE);
+  #endif // _SDCC_BIGMEM_
 }
 
 /**
@@ -182,7 +268,14 @@ void FLASH_ProgramByte(uint32_t Address, uint8_t Data)
 {
   /* Check parameters */
   assert_param(IS_FLASH_ADDRESS_OK(Address));
-  *(PointerAttr uint8_t*) (MemoryAddressCast)Address = Data;
+
+  /* Program byte */
+  /* SDCC patch: SDCC requires helper routines for >64kB addresses due to lack of far pointers */
+  #ifndef _SDCC_BIGMEM_
+    *(PointerAttr uint8_t*) (MemoryAddressCast)Address = Data;
+  #else
+    write_byte_address((MemoryAddressCast) Address, Data);
+  #endif // _SDCC_BIGMEM_
 }
 
 /**
@@ -198,7 +291,12 @@ uint8_t FLASH_ReadByte(uint32_t Address)
   assert_param(IS_FLASH_ADDRESS_OK(Address));
   
   /* Read byte */
-  return(*(PointerAttr uint8_t *) (MemoryAddressCast)Address); 
+  /* SDCC patch: SDCC requires helper routines for >64kB addresses due to lack of far pointers */
+  #ifndef _SDCC_BIGMEM_
+    return(*(PointerAttr uint8_t *) (MemoryAddressCast)Address); 
+  #else
+    return(read_byte_address((MemoryAddressCast) Address));
+  #endif // _SDCC_BIGMEM_
 }
 
 /**
@@ -218,14 +316,22 @@ void FLASH_ProgramWord(uint32_t Address, uint32_t Data)
   FLASH->CR2 |= FLASH_CR2_WPRG;
   FLASH->NCR2 &= (uint8_t)(~FLASH_NCR2_NWPRG);
   
-  /* Write one byte - from lowest address*/
-  *((PointerAttr uint8_t*)(MemoryAddressCast)Address)       = *((uint8_t*)(&Data));
-  /* Write one byte*/
-  *(((PointerAttr uint8_t*)(MemoryAddressCast)Address) + 1) = *((uint8_t*)(&Data)+1); 
-  /* Write one byte*/    
-  *(((PointerAttr uint8_t*)(MemoryAddressCast)Address) + 2) = *((uint8_t*)(&Data)+2); 
-  /* Write one byte - from higher address*/
-  *(((PointerAttr uint8_t*)(MemoryAddressCast)Address) + 3) = *((uint8_t*)(&Data)+3); 
+  /* SDCC patch: SDCC requires helper routines for >64kB addresses due to lack of far pointers */
+  #ifndef _SDCC_BIGMEM_
+    /* Write one byte - from lowest address*/
+    *((PointerAttr uint8_t*)(MemoryAddressCast)Address)       = *((uint8_t*)(&Data));
+    /* Write one byte*/
+    *(((PointerAttr uint8_t*)(MemoryAddressCast)Address) + 1) = *((uint8_t*)(&Data)+1); 
+    /* Write one byte*/    
+    *(((PointerAttr uint8_t*)(MemoryAddressCast)Address) + 2) = *((uint8_t*)(&Data)+2); 
+    /* Write one byte - from higher address*/
+    *(((PointerAttr uint8_t*)(MemoryAddressCast)Address) + 3) = *((uint8_t*)(&Data)+3); 
+  #else
+    write_byte_address((MemoryAddressCast) (Address    ), *((uint8_t*)(&Data)));
+    write_byte_address((MemoryAddressCast) (Address + 1), *((uint8_t*)(&Data)+1));
+    write_byte_address((MemoryAddressCast) (Address + 2), *((uint8_t*)(&Data)+2));
+    write_byte_address((MemoryAddressCast) (Address + 3), *((uint8_t*)(&Data)+3));
+  #endif // _SDCC_BIGMEM_
 }
 
 /**
@@ -468,29 +574,29 @@ FlagStatus FLASH_GetFlagStatus(FLASH_Flag_TypeDef FLASH_FLAG)
    erased or corrupted, so it may be desirable to perform the copy again. 
    Depending on the application memory model, the memcpy() or fmemcpy() functions
    should be used to perform the copy.
-      • In case your project uses the SMALL memory model (code smaller than 64K),
+      In case your project uses the SMALL memory model (code smaller than 64K),
        memcpy()function is recommended to perform the copy
-      • In case your project uses the LARGE memory model, functions can be 
+      In case your project uses the LARGE memory model, functions can be 
       everywhere in the 24-bits address space (not limited to the first 64KB of
       code), In this case, the use of memcpy() function will not be appropriate,
       you need to use the specific fmemcpy() function (which copies objects with
       24-bit addresses).
       - The linker automatically defines 2 symbols for each inram function:
-           • __address__functionname is a symbol that holds the Flash address 
+           __address__functionname is a symbol that holds the Flash address 
            where the given function code is stored.
-           • __size__functionname is a symbol that holds the function size in bytes.
+           __size__functionname is a symbol that holds the function size in bytes.
      And we already have the function address (which is itself a pointer)
   4- In main.c file these two steps should be performed for each inram function:
-     • Import the "__address__functionname" and "__size__functionname" symbols
+     Import the "__address__functionname" and "__size__functionname" symbols
        as global variables:
          extern int __address__functionname; // Symbol holding the flash address
          extern int __size__functionname;    // Symbol holding the function size
-     • In case of SMALL memory model use, Call the memcpy() function to copy the
+     In case of SMALL memory model use, Call the memcpy() function to copy the
       inram function to the RAM destination address:
                 memcpy(functionname, // RAM destination address
                       (void*)&__address__functionname, // Flash source address
                       (int)&__size__functionname); // Code size of the function
-     • In case of LARGE memory model use, call the fmemcpy() function to copy 
+     In case of LARGE memory model use, call the fmemcpy() function to copy 
      the inram function to the RAM destination address:
                  memcpy(functionname, // RAM destination address
                       (void @far*)&__address__functionname, // Flash source address
@@ -535,6 +641,11 @@ FlagStatus FLASH_GetFlagStatus(FLASH_Flag_TypeDef FLASH_FLAG)
   * - #define RAM_EXECUTION  (1) 
   */
   
+/* SDCC patch: code in RAM not yet patched */
+#if defined (_SDCC_) && defined (RAM_EXECUTION)
+ #error RAM execution not yet implemented in patch, comment RAM_EXECUTION in stm8s.h
+#endif
+
 #if defined (_COSMIC_) && defined (RAM_EXECUTION)
  #pragma section (FLASH_CODE)
 #endif  /* _COSMIC_ && RAM_EXECUTION */
