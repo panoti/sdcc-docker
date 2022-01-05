@@ -2,6 +2,6 @@
 
 ## STM8S/A Standard peripheral library
 
-Download at [here](https://www.st.com/en/embedded-software/stsw-stm8069.html)
-
-Current version: v2.3.1
+[SPL v2.3.1](https://www.st.com/en/embedded-software/stsw-stm8069.html) missing SDCC compiler definition.
+So we use a modification of PlatformIO at [here](https://sourceforge.net/projects/platformio-storage/files/packages/)
+file `https://sourceforge.net/projects/platformio-storage/files/packages/`
